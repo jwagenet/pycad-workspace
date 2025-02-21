@@ -35,5 +35,8 @@ class TPPP0108(TooTallToby):
 
         super().__init__(part=p.part, id="Party Pack 01-08", name="Tie Plate", ref_mass=3387.06, density=Density.ST)
 
-t = TPPP0108()
-show(t)
+
+if __name__ == "__main__":
+    t = TPPP0108()
+    t.show_properties()
+    show(t)

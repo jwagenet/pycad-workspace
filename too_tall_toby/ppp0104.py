@@ -49,5 +49,8 @@ class TPPP0104(TooTallToby):
 
         super().__init__(part=p.part, id="Party Pack 01-04", name="Angle Bracket", ref_mass=310.00, density=Density.ST)
 
-t = TPPP0104()
-show(t)
+
+if __name__ == "__main__":
+    t = TPPP0104()
+    t.show_properties()
+    show(t)

@@ -49,15 +49,18 @@ class TPPP0101(TooTallToby):
             # fillet(ppp0101.edges().filter_by(Axis.Z).filter_by(lambda e:e.length == 42), 6)
 
             # workaround to stop fillet following tangent edges
-            with BuildSketch(Plane(v)) as s4:
+            with BuildSketch(Plane(v)):
                 with BuildLine():
-                    l = Polyline((0, 6), (0, 0), (6, 0))
-                    RadiusArc((l @ 1), (l @ 0), radius=6)
+                    l1 = Polyline((0, 6), (0, 0), (6, 0))
+                    RadiusArc((l1 @ 1), (l1 @ 0), radius=6)
                 make_face()
             f = extrude(amount=42 + 26, mode=Mode.SUBTRACT)
             mirror(f, mode=Mode.SUBTRACT)
 
         super().__init__(part=p.part, id="Party Pack 01-01", name="Bearing Bracket", ref_mass=797.15, density=Density.ST)
 
-t = TPPP0101()
-show(t)
+
+if __name__ == "__main__":
+    t = TPPP0101()
+    t.show_properties()
+    show(t)

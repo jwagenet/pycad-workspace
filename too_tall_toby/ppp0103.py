@@ -30,5 +30,8 @@ class TPPP0103(TooTallToby):
 
         super().__init__(part=p.part, id="Party Pack 01-03", name="C Clamp Base", ref_mass=96.13, density=Density.AL)
 
-t = TPPP0103()
-show(t)
+
+if __name__ == "__main__":
+    t = TPPP0103()
+    t.show_properties()
+    show(t)

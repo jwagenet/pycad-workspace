@@ -39,5 +39,8 @@ class T23T24(TooTallToby):
 
         super().__init__(part=p.part, id="23-T-24", name="Curved Support", ref_mass=1294, density=Density.ST, tolerance=3)
 
-t = T23T24()
-show(t)
+
+if __name__ == "__main__":
+    t = T23T24()
+    t.show_properties()
+    show(t)

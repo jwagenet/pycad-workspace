@@ -19,7 +19,7 @@ class T230202(TooTallToby):
         sheet_r = 4
         outer_r = sheet_r + sheet_t
         with BuildPart() as p:
-            with BuildLine(Plane.XZ) as l1:
+            with BuildLine(Plane.XZ):
                 FilletPolyline((0, 0), (170/2, 0), (170/2 + 65/tan(radians(60)), -65), (170/2, -65), radius=outer_r)
 
             # can the vertices be sorted along the line?
@@ -80,5 +80,8 @@ class T230202(TooTallToby):
 
         super().__init__(part=p.part, id="23-02-02", name="SM Hanger", ref_mass=1028, density=Density.ST, tolerance=10)
 
-t = T230202()
-show(t)
+
+if __name__ == "__main__":
+    t = T230202()
+    t.show_properties()
+    show(t)

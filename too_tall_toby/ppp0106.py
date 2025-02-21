@@ -50,5 +50,8 @@ class TPPP0106(TooTallToby):
 
         super().__init__(part=p.part, id="Party Pack 01-06", name="Bearing Jig", ref_mass=328.02, density=Density.ST)
 
-t = TPPP0106()
-show(t)
+
+if __name__ == "__main__":
+    t = TPPP0106()
+    t.show_properties()
+    show(t)

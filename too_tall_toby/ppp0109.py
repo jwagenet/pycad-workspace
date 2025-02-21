@@ -23,7 +23,7 @@ class TPPP0109(TooTallToby):
                 with Locations((0,60-15)):
                     Circle(15)
 
-                with BuildLine() as l:
+                with BuildLine():
                     c = Line((75 / 2, 0), (75 / 2, 60), mode=Mode.PRIVATE)
                     u = s1.edge().find_tangent(75 / 2 + 90)[0]  # where is the slope 75/2?
                     l1 = IntersectingLine(s1.edge().position_at(u), -s1.edge().tangent_at(u), other=c)
@@ -50,5 +50,8 @@ class TPPP0109(TooTallToby):
 
         super().__init__(part=p.part, id="Party Pack 01-09", name="Corner Tie", ref_mass=307.23, density=Density.AL)
 
-t = TPPP0109()
-show(t)
+
+if __name__ == "__main__":
+    t = TPPP0109()
+    t.show_properties()
+    show(t)

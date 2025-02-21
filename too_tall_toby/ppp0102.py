@@ -39,5 +39,8 @@ class TPPP0102(TooTallToby):
 
         super().__init__(part=p.part, id="Party Pack 01-02", name="Post Cap", ref_mass=328.02, density=Density.ST)
 
-t = TPPP0102()
-show(t)
+
+if __name__ == "__main__":
+    t = TPPP0102()
+    t.show_properties()
+    show(t)

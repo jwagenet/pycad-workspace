@@ -13,7 +13,7 @@ class TPPP0110(TooTallToby):
     def __init__(self):
         with BuildPart() as p:
             with BuildSketch(Plane.YZ) as s:
-                with BuildLine() as l:
+                with BuildLine():
                     JernArc((0, 0), (1, 0), 40, 90)
                     Line((0, 46), (42, 46))
                 make_hull()
@@ -46,5 +46,8 @@ class TPPP0110(TooTallToby):
 
         super().__init__(part=p.part, id="Party Pack 01-10", name="Light Cap", ref_mass=211.30, density=Density.ABS)
 
-t = TPPP0110()
-show(t)
+
+if __name__ == "__main__":
+    t = TPPP0110()
+    t.show_properties()
+    show(t)

@@ -44,5 +44,8 @@ class TPPP0107(TooTallToby):
 
         super().__init__(part=p.part, id="Party Pack 01-07", name="Flanged Hub", ref_mass=372.99, density=Density.AL)
 
-t = TPPP0107()
-show(t)
+
+if __name__ == "__main__":
+    t = TPPP0107()
+    t.show_properties()
+    show(t)

@@ -29,5 +29,8 @@ class TPPP0105(TooTallToby):
 
         super().__init__(part=p.part, id="Party Pack 01-05", name="Paste Sleeve", ref_mass=57.08, density=Density.ABS)
 
-t = TPPP0105()
-show(t)
+
+if __name__ == "__main__":
+    t = TPPP0105()
+    t.show_properties()
+    show(t)
