@@ -10,3 +10,6 @@ wheels/
 .venv
 
 *.code-workspace
+
+test.py
+examples/
