@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from build123d import *
+from build123d import Solid, BasePartObject
 
 
 @dataclass
@@ -13,12 +13,15 @@ class Density:
 
 class TooTallToby(BasePartObject):
     """Too Tall Toby wrapper class"""
-    def __init__(self, part, ref_mass, density, show_mass=True):
+    def __init__(self, part: Solid, id: str, name: str, ref_mass: float, density: float, tolerance: float = 1, show_mass: bool = True):
         super().__init__(part=part)
+        self.id = id
+        self.name = name
         self.density = density
         self.ref_mass = ref_mass
         self.mass = self.volume * self.density
+        self.tolerance = tolerance
 
-        if print:
+        if show_mass:
             print(f"\npart mass = {self.mass:.02f}")
             print(f"ref mass = {self.ref_mass}")

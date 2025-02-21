@@ -1,23 +1,20 @@
 import copy
 
 from build123d import *
-from ocp_vscode import show, show_object, reset_show, set_port, set_defaults, get_defaults
+from ocp_vscode import show, set_port
 
-from too_tall_toby.tootalltoby import Density
+from helpers import Density, TooTallToby
 
 set_port(3939)
 
 
-class PPP0105(BasePartObject):
+class TPPP0105(TooTallToby):
     """Too Tall Toby Party Pack 01-05 Paste Sleeve
 
     loft() does not maintain hollow sketch portions, so two lofts are required
     """
 
     def __init__(self):
-        self.density = Density.ABS
-        self.ref_mass = 57.08
-
         with BuildPart() as p:
             with BuildSketch() as s1:
                 SlotOverall(45, 38)
@@ -30,12 +27,7 @@ class PPP0105(BasePartObject):
             loft(profiles, ruled=True, mode=Mode.SUBTRACT)
 
 
-        super().__init__(part=p.part)
-        self.mass = self.volume * self.density
+        super().__init__(part=p.part, id="Party Pack 01-05", name="Paste Sleeve", ref_mass=57.08, density=Density.ABS)
 
-        show(self)
-        print(f"\npart mass = {self.mass:.02f}")
-        print(f"ref mass = {self.ref_mass}")
-
-
-PPP0105()
+t = TPPP0105()
+show(t)
