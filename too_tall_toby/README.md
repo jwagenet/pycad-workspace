@@ -1,0 +1,1 @@
+Reference implementations for Too Tall Toby challenges as shared in the (build123d docs)[https://build123d.readthedocs.io/en/latest/tttt.html]. My personal objective to meet object mass to the significant digit shared with the drawing, not just to the print tolerance.
