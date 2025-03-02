@@ -1,4 +1,4 @@
-"""Demo method to align and fuse part using joints for bfly2000
+"""Demo method to align and fuse part using joints for @bfly2000
 
 Joints are created on each part and connected. One of the parts (carriage) gets parameters
 for mating alignment. This method seems best to implement if the parts might need to be split
