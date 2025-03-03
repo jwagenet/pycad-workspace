@@ -2,8 +2,8 @@ import copy
 from build123d import *
 from ocp_vscode import show, show_object, set_viewer_config, set_port, set_defaults, get_defaults
 set_port(3939)
-set_viewer_config(black_edges=False)
 
+# geometric solution reference https://www.youtube.com/watch?v=-STj2SSv6TU for tangent arcs
 
 class AubergineSlot(BaseSketchObject):
     """Sketch Object: Aubergine Slot
@@ -31,9 +31,7 @@ class AubergineSlot(BaseSketchObject):
                  rotation = 0,
                  mode = Mode.ADD):
 
-
         start_point = Vector(0, 0)
-        # end_point = Vector(end_point)
         end_point = Vector(length, 0)
 
         center_side = 1
@@ -80,7 +78,6 @@ class AubergineSlot(BaseSketchObject):
                     max_ratio = 1.888
                     min_ratio = .666
 
-                    print(midline.length / inner_radius_length, midline.length / outer_radius_length)
                     if midline.length / inner_radius_length < min_ratio:
                         raise ValueError(f"The inner arc radius is too large. Should be less than {(midline.length / min_ratio - (start_radius + end_radius) / 2)}.")
 
@@ -115,54 +112,24 @@ class AubergineSlot(BaseSketchObject):
                     ta1 = Vector((ia1 % 1).Y, -(ia1 % 1).X)
                     ta2 = Vector((ia2 % 1).Y, -(ia2 % 1).X)
                     tb1 = Vector((ib1 % 1).Y, -(ib1 % 1).X)
-                    tb2 = Vector((ib2 % 1).Y, -(ib2 % 1).X)
-
-                    # show_object([ia1, ib1, ia2, ib2])
-
-                    # y5 = Line(o2, xa)
-                    # y6 = Line(o2, xb)
-                    # ia2 = IntersectingLine(o2, (y5 % 0), c2)
-                    # ib2 = IntersectingLine(o2, -(y6 % 0), c2)
-
 
                 a1x = TangentArc([ia1 @ 1, ib1 @ 1], tangent=center_side * -ta1)
                 a2x = TangentArc([ia1 @ 1, ia2 @ 1], tangent=center_side * ta1)
                 a3x = TangentArc([ia2 @ 1, ib2 @ 1], tangent=center_side * ta2)
                 a4x = TangentArc([ib1 @ 1, ib2 @ 1], tangent=center_side * -tb1)
 
-                # show_object([a1x, a2x, a3x, a4x])
-
-                # a1 = RadiusArc(ia1 @ 1, ib1 @ 1, start_radius, short_sagitta=False)
-                # a3 = RadiusArc(ia2 @ 1, ib2 @ 1, end_radius)
-
-                # print(a1 % 1, a3 % 0)
-
-                # if center_side == 1:
-                #     a2 = RadiusArc(ia2 @ 1, ia1 @ 1, inner_radius)
-                #     a4 = RadiusArc(ib2 @ 1, ib1 @ 1, outer_radius)
-
-                # else:
-                #     a2 = RadiusArc(ia1 @ 1, ia2 @ 1, outer_radius)
-                #     a4 = RadiusArc(ib1 @ 1, ib2 @ 1, inner_radius)
-
-                points = [ia1 @ 1, ia2 @ 1, ib2 @ 1, ib1 @ 1]
-
             make_face()
 
         # removed align option because its a little weird
-        super().__init__(sketch.sketch, rotation, mode)
+        super().__init__(obj=sketch.sketch, rotation=rotation, mode=mode)
 
 
-# show_object(AubergineSlot(length=20,
-                    #   start_radius=10,
-                    #   end_radius=5,
-                    #   inner_radius=22,
-                    #   outer_radius=37,
-                    #   side=Side.RIGHT,
-                    #   rotation=0))
-
+show(AubergineSlot(length=20,
+                      start_radius=10,
+                      end_radius=1,
+                      inner_radius=15,
+                      outer_radius=30,
+                      side=Side.RIGHT,
+                      rotation=0))
 
 # todo: AubergineArc. use x/y ratio of arc angle to determine inner/outer radii
-# geometric solution reference https://www.youtube.com/watch?v=-STj2SSv6TU
-
-
