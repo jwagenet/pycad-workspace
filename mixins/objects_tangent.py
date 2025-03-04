@@ -1,4 +1,6 @@
 import copy
+from math import acos, atan2, degrees
+
 from build123d import *
 from ocp_vscode import show, show_object, set_viewer_config, set_port, set_defaults, get_defaults
 set_port(3939)
@@ -124,12 +126,250 @@ class AubergineSlot(BaseSketchObject):
         super().__init__(obj=sketch.sketch, rotation=rotation, mode=mode)
 
 
-show(AubergineSlot(length=20,
-                      start_radius=10,
-                      end_radius=1,
-                      inner_radius=15,
-                      outer_radius=30,
-                      side=Side.RIGHT,
-                      rotation=0))
+# show(AubergineSlot(length=20,
+#                       start_radius=10,
+#                       end_radius=1,
+#                       inner_radius=15,
+#                       outer_radius=30,
+#                       side=Side.RIGHT,
+#                       rotation=0))
 
-# todo: AubergineArc. use x/y ratio of arc angle to determine inner/outer radii
+class DoubleArcTangentLine(BaseLineObject):
+    """Line Object: Double Arc Tangent Line
+
+    Create a line tangent to supplied arcs
+
+    Args:
+        start_arc (Curve | Edge | Wire): starting arc, must be GeomType.CIRCLE
+        end_arc (Curve | Edge | Wire): ending arc, must be GeomType.CIRCLE
+        side (Side): side of arcs to place tangent arc center, LEFT or RIGHT. Defaults to Side.LEFT
+        keep (Keep): which tangent arc to keep, INSIDE, OUTSIDE, or BOTH. Defaults to Keep.INSIDE
+        mode (Mode, optional): combination mode. Defaults to Mode.ADD.
+    """
+
+    def __init__(
+        self,
+        start_arc: Curve | Edge | Wire,
+        end_arc: Curve | Edge | Wire,
+        side=Side.LEFT,
+        keep=Keep.INSIDE,
+        mode=Mode.ADD,
+        ):
+
+        side_sign = {
+            Side.LEFT: 1,
+            Side.RIGHT: -1,
+        }
+
+        keep_sign = {
+            Keep.INSIDE: [1],
+            Keep.OUTSIDE: [-1],
+            Keep.BOTH: [1, -1],
+        }
+
+        arcs = [start_arc, end_arc]
+        points = [arc.arc_center for arc in arcs]
+        radii = [arc.radius for arc in arcs]
+        midline = points[1] - points[0]
+
+        if midline.length == 0:
+            raise ValueError("Cannot find tangent for concentric arcs.")
+
+        if (keep == Keep.INSIDE or keep == Keep.BOTH):
+            if midline.length < sum(radii):
+                raise ValueError("Cannot find INSIDE tangent for overlapping arcs.")
+
+            if midline.length == sum(radii):
+                raise ValueError("Cannot find INSIDE tangent for tangent arcs.")
+
+        # Method:
+        # https://en.wikipedia.org/wiki/Tangent_lines_to_circles#Tangent_lines_to_two_circles
+        # - angle to point on circle of tangent incidence is theta + phi
+        # - phi is angle between x axis and midline
+        # - OUTSIDE theta is angle formed by triangle legs (midline.length) and (r0 - r1)
+        # - INSIDE theta is angle formed by triangle legs (midline.length) and (r0 + r1)
+        # - INSIDE theta for arc1 is 180 from theta for arc0
+
+        phi = degrees(atan2(midline.Y, midline.X))
+        tangent = []
+        for sign in keep_sign[keep]:
+            if sign == keep_sign[Keep.OUTSIDE][0]:
+                theta = degrees(acos((radii[0] - radii[1]) / midline.length))
+                angle = side_sign[side] * theta + phi
+                intersect = [PolarLine(points[i], radii[i], angle) for i in [0, 1]]
+
+            elif sign == keep_sign[Keep.INSIDE][0]:
+                theta = degrees(acos((radii[0] + radii[1]) / midline.length))
+                angle = side_sign[side] * theta + phi
+                intersect = [PolarLine(points[i], radii[i], i * 180 + angle) for i in [0, 1]]
+
+            tangent.append(Line(intersect[0] @ 1, intersect[1] @ 1))
+
+        wire = Wire(tangent)
+        super().__init__(wire, mode)
+
+
+
+c1 = CenterArc(Vector(0, 0), 2, start_angle=0, arc_size=360)
+c2 = CenterArc(Vector(9, 0), 5, start_angle=0, arc_size=360)
+show_object([c1, c2,],position=(0,0,1), target=(0,0,0))
+show_object([DoubleArcTangentLine(c1, c2, side=Side.LEFT, keep=Keep.OUTSIDE),
+              DoubleArcTangentLine(c1, c2, side=Side.RIGHT, keep=Keep.OUTSIDE)]
+              ,position=(0,0,1), target=(0,0,0))
+show_object([DoubleArcTangentLine(c1, c2, side=Side.LEFT, keep=Keep.INSIDE),
+              DoubleArcTangentLine(c1, c2, side=Side.RIGHT, keep=Keep.INSIDE)]
+              ,position=(0,0,1), target=(0,0,0))
+
+
+
+class DoubleArcTangentArc(BaseLineObject):
+    """Line Object: Double Arc Tangent Arc
+
+    Create an arc tangent to supplied arcs
+
+    Args:
+        start_arc (Curve | Edge | Wire): starting arc, must be GeomType.CIRCLE
+        end_arc (Curve | Edge | Wire): ending arc, must be GeomType.CIRCLE
+        radius (float): radius of tangent arc
+        side (Side): side of arcs to place tangent arc center, LEFT or RIGHT. Defaults to Side.LEFT
+        keep (Keep): which tangent arc to keep, INSIDE, OUTSIDE, or BOTH. Defaults to Keep.INSIDE
+        mode (Mode, optional): combination mode. Defaults to Mode.ADD.
+    """
+
+    def __init__(
+        self,
+        start_arc: Curve | Edge | Wire,
+        end_arc: Curve | Edge | Wire,
+        radius: float,
+        side=Side.LEFT,
+        keep=Keep.INSIDE,
+        mode=Mode.ADD,
+        ):
+
+        side_sign = {
+            Side.LEFT: 1,
+            Side.RIGHT: -1,
+        }
+
+        keep_sign = {
+            Keep.INSIDE: [1],
+            Keep.OUTSIDE: [-1],
+            Keep.BOTH: [1, -1],
+        }
+
+        arcs = [start_arc, end_arc]
+        points = [arc.arc_center for arc in arcs]
+        radii = [arc.radius for arc in arcs]
+
+        # make a normal vector for sorting intersections
+        midline = points[1] - points[0]
+        normal = side_sign[side] * Vector(midline.Y, -midline.X)
+
+        arc = []
+        for sign in keep_sign[keep]:
+            net_radius = radius + sign * (radii[0] + radii[1]) / 2
+
+            # allow errors to fall through with Keep.BOTH to handle later
+            if keep != Keep.BOTH:
+                # technically the range midline.length / 2 < radius < math.inf should be valid
+                if net_radius <= midline.length / 2:
+                    raise ValueError(f"The arc radius is too small. Should be greater than {(midline.length - sign * (radii[0] + radii[1])) / 2} (and probably larger).")
+
+                # current intersection method doesn't work out to expected range and may return 0
+                # workaround to catch error midline.length / net_radius needs to be less than 1.888 or greater than .666 from testing
+                max_ratio = 1.888
+                min_ratio = .666
+                if midline.length / net_radius > max_ratio:
+                    raise ValueError(f"The arc radius is too small. Should be greater than {midline.length / max_ratio - sign * (radii[0] + radii[1]) / 2}.")
+
+                if midline.length / net_radius < min_ratio:
+                    raise ValueError(f"The arc radius is too large. Should be less than {midline.length / min_ratio - sign * (radii[0] + radii[1]) / 2}.")
+
+            # Method:
+            # https://www.youtube.com/watch?v=-STj2SSv6TU
+            # - solves geometrically rather than algebraically
+            # - the centerpoint of the inner arc is found by the intersection of the
+            #   arcs made by adding the inner radius to the point radii
+            # - the centerpoint of the outer arc is found by the intersection of the
+            #   arcs made by subtracting the outer radius from the point radii
+            # - then it's a matter of finding the points where the connecting lines
+            #   intersect the point circles
+            ref_arcs = [CenterArc(points[i], sign * radii[i] + radius, start_angle=0, arc_size=360) for i in [0, 1]]
+            ref_intersections = ref_arcs[0].edge().intersect(ref_arcs[1].edge())
+
+            try:
+                arc_center = ref_intersections.sort_by(Axis(points[0], normal))[0]
+            except AttributeError as exception:
+                if keep == Keep.BOTH:
+                    continue
+                else:
+                    raise exception
+
+            intersect = [IntersectingLine(points[i], sign * (Vector(arc_center) - Vector(points[i])), arcs[i]) for i in [0, 1]]
+            intersect_points = [intersect[0] @ 1, intersect[1] @ 1]
+
+            if side == Side.LEFT:
+                intersect_points.reverse()
+
+            arc.append(RadiusArc(*intersect_points, radius=radius))
+
+        if keep == Keep.BOTH and not arc:
+            # no intersections were found for Keep.BOTH after other checks ignored
+            raise ValueError("Unable to find any sides to keep with radius. Try Keep.INSIDE or Keep.OUTSIDE for more detailed information.")
+
+        wire = Wire(arc)
+        super().__init__(wire, mode)
+
+
+class AubergineArcSlot(BaseSketchObject):
+    """Sketch Object: Aubergine Arc Slot
+
+    Add a curved slot of varying width defined by center length, and start, end, inner, and outer radii.
+
+    Args:
+        arc (Curve | Edge | Wire): reference arc
+        start_height (float): height of start circle
+        end_height (float): height of end circle
+        width_factor (float): 
+        mode (Mode, optional): combination mode. Defaults to Mode.ADD.
+    """
+
+    def __init__(self,
+                 arc,
+                 start_height,
+                 end_height,
+                 width_factor,
+                 mode = Mode.ADD):
+
+        start_arc = CenterArc(arc @ 0, start_height / 2, start_angle=0, arc_size=360)
+        end_arc = CenterArc(arc @ 1, end_height / 2, start_angle=0, arc_size=360)
+        midline = arc @ 1 - arc @ 0
+
+        # factor = width_factor * (1.888 - .666) + .666
+        # inner_radius = midline.length / factor - (start_height + end_height) / 4
+        # outer_radius = midline.length / factor + (start_height + end_height) / 4
+
+        inner_radius = arc.radius - width_factor
+        outer_radius = arc.radius + width_factor
+
+        inner_arc = DoubleArcTangentArc(start_arc, end_arc, inner_radius, side=Side.LEFT, keep=Keep.INSIDE)
+        outer_arc = DoubleArcTangentArc(start_arc, end_arc, outer_radius, side=Side.LEFT, keep=Keep.OUTSIDE)
+        start_arc = TangentArc([inner_arc @ 0, outer_arc @ 0], tangent=-(inner_arc % 0))
+        end_arc = TangentArc([inner_arc @ 1, outer_arc @ 1], tangent=inner_arc % 1)
+
+        face = make_face([start_arc, end_arc, inner_arc, outer_arc])
+        super().__init__(obj=face, mode=mode)
+
+
+
+# arc = ThreePointArc((-3, 0), (0,-1), (3, 1))
+# show(arc, AubergineArcSlot(arc, 5, 3, 1.5), position=(0,0,1), target=(0,0,0))
+
+
+
+# c1 = CenterArc(Vector(-5, 2), 8, start_angle=0, arc_size=360)
+# c2 = CenterArc(Vector(10, -3), 5, start_angle=0, arc_size=360)
+# show(c1, c2,
+#      DoubleArcTangentArc(c1, c2, 5, side=Side.LEFT, keep=Keep.INSIDE),
+#      DoubleArcTangentArc(c1, c2, 15, side=Side.RIGHT, keep=Keep.OUTSIDE),
+#      position=(0,0,1), target=(0,0,0))
