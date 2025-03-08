@@ -5,6 +5,103 @@ from ocp_vscode import show, show_object, set_viewer_config, set_port, set_defau
 set_port(3939)
 
 
+class ArcTangentLine(BaseLineObject):
+    """Line Object: Arc Point Tangent Line
+
+    Create a line tangent to arc to point
+
+    Args:
+        start_arc (Curve | Edge | Wire): arc, must be GeomType.CIRCLE
+        target (VectorLike): target point for tangent
+        side (Side, optional): side of arcs to place tangent arc center, LEFT or RIGHT. Defaults to Side.LEFT
+        mode (Mode, optional): combination mode. Defaults to Mode.ADD.
+    """
+
+    def __init__(
+        self,
+        arc: Curve | Edge | Wire,
+        angle: float,
+        other: Curve | Edge | Wire = None,
+        length: float = None,
+        side: Side = Side.LEFT,
+        mode=Mode.ADD,
+        ):
+
+        side_sign = {
+            Side.LEFT: 1,
+            Side.RIGHT: -1,
+        }
+
+        center = arc.arc_center
+        radius = arc.radius
+
+        intersect = PolarLine(center, radius, angle)
+        normal = Vector((intersect @ 1).Y, -(intersect @ 1).X)
+
+        if other is not None:
+            tangent = IntersectingLine(intersect @ 1, direction=normal, other=other)
+
+        elif length is not None:
+            tangent = PolarLine(intersect @ 1, length, direction=side_sign[side] * -normal)
+
+        else:
+            raise ValueError("Need either other or a length to find tangent.")
+
+        show_object(tangent)
+
+        wire = Wire(tangent)
+        super().__init__(wire, mode)
+
+c1 = CenterArc((0, 0), 3, 0, 360)
+
+target = Line((-6, 6), (6,6))
+wire = ArcTangentLine(c1, 30, other=target)
+print(wire.length)
+show(c1, target, wire, position=(0,0,1), target=(0,0,0))
+
+
+class ArcPointTangentLine(BaseLineObject):
+    """Line Object: Arc Point Tangent Line
+
+    Create a line tangent to arc to point
+
+    Args:
+        start_arc (Curve | Edge | Wire): arc, must be GeomType.CIRCLE
+        target (VectorLike): target point for tangent
+        side (Side, optional): side of arcs to place tangent arc center, LEFT or RIGHT. Defaults to Side.LEFT
+        mode (Mode, optional): combination mode. Defaults to Mode.ADD.
+    """
+
+    def __init__(
+        self,
+        arc: Curve | Edge | Wire,
+        target: VectorLike,
+        side=Side.LEFT,
+        mode=Mode.ADD,
+        ):
+
+        side_sign = {
+            Side.LEFT: 1,
+            Side.RIGHT: -1,
+        }
+
+        points = [arc.arc_center, Vector(target)]
+        radius = arc.radius
+        midline = points[1] - points[0]
+
+        if midline.length < radius:
+            raise ValueError("Cannot find tangent for point inside arc.")
+
+        phi = degrees(atan2(midline.Y, midline.X))
+        theta = degrees(acos((radius) / midline.length))
+        angle = side_sign[side] * theta + phi
+        intersect = PolarLine(points[0], radius, angle)
+        tangent = Line(intersect @ 1, points[1])
+
+        wire = Wire(tangent)
+        super().__init__(wire, mode)
+
+
 class DoubleArcTangentLine(BaseLineObject):
     """Line Object: Double Arc Tangent Line
 
@@ -78,19 +175,6 @@ class DoubleArcTangentLine(BaseLineObject):
 
         wire = Wire(tangent)
         super().__init__(wire, mode)
-
-
-
-c1 = CenterArc(Vector(0, 0), 2, start_angle=0, arc_size=360)
-c2 = CenterArc(Vector(9, 0), 5, start_angle=0, arc_size=360)
-show_object([c1, c2,],position=(0,0,1), target=(0,0,0))
-show_object([DoubleArcTangentLine(c1, c2, side=Side.LEFT, keep=Keep.OUTSIDE),
-              DoubleArcTangentLine(c1, c2, side=Side.RIGHT, keep=Keep.OUTSIDE)]
-              ,position=(0,0,1), target=(0,0,0))
-show_object([DoubleArcTangentLine(c1, c2, side=Side.LEFT, keep=Keep.INSIDE),
-              DoubleArcTangentLine(c1, c2, side=Side.RIGHT, keep=Keep.INSIDE)]
-              ,position=(0,0,1), target=(0,0,0))
-
 
 
 class DoubleArcTangentArc(BaseLineObject):
