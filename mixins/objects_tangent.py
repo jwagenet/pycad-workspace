@@ -59,25 +59,25 @@ wire = ArcTangentLine(c1, 30, other=target)
 print(wire.length)
 show(c1, target, wire, position=(0,0,1), target=(0,0,0))
 
+class PointArcTangentLine(BaseLineObject):
+    """Line Object: Point Arc Tangent Line
 
-class ArcPointTangentLine(BaseLineObject):
-    """Line Object: Arc Point Tangent Line
-
-    Create a line tangent to arc to point
+    Create a straight, tangent line from a point to a circular arc.
 
     Args:
-        start_arc (Curve | Edge | Wire): arc, must be GeomType.CIRCLE
-        target (VectorLike): target point for tangent
-        side (Side, optional): side of arcs to place tangent arc center, LEFT or RIGHT. Defaults to Side.LEFT
-        mode (Mode, optional): combination mode. Defaults to Mode.ADD.
+        point (VectorLike): intersection point for tangent
+        arc (Curve | Edge | Wire): circular arc to tangent, must be GeomType.CIRCLE
+        side (Side, optional): side of arcs to place tangent arc center, LEFT or RIGHT. 
+            Defaults to Side.LEFT
+        mode (Mode, optional): combination mode. Defaults to Mode.ADD
     """
 
     def __init__(
         self,
+        point: VectorLike,
         arc: Curve | Edge | Wire,
-        target: VectorLike,
-        side=Side.LEFT,
-        mode=Mode.ADD,
+        side: Side = Side.LEFT,
+        mode: Mode = Mode.ADD,
         ):
 
         side_sign = {
@@ -85,20 +85,43 @@ class ArcPointTangentLine(BaseLineObject):
             Side.RIGHT: -1,
         }
 
-        points = [arc.arc_center, Vector(target)]
+        context: BuildLine | None = BuildLine._get_context(self)
+        validate_inputs(context, self)
+
+        tangent_point  = WorkplaneList.localize(point)
+        if context is None:
+            # Making the plane validates pnt, tangent, and other are coplanar
+            workplane = Edge.make_line(tangent_point, arc.arc_center).common_plane(
+                *arc.edges()
+            )
+            if workplane is None:
+                raise ValueError("DoubleTangentArc only works on a single plane")
+        else:
+            workplane = copy_module.copy(
+                WorkplaneList._get_context().workplanes[0]
+            )
+
+        arc_center = arc.arc_center
         radius = arc.radius
-        midline = points[1] - points[0]
+        midline = tangent_point - arc_center
 
         if midline.length < radius:
             raise ValueError("Cannot find tangent for point inside arc.")
 
-        phi = degrees(atan2(midline.Y, midline.X))
-        theta = degrees(acos((radius) / midline.length))
+        # Find angle phi between midline and x
+        # and angle theta between midplane length and radius
+        # add the resulting angles with a sign on theta to pick a direction
+        # This angle is the tangent location around the circle from x
+        phi = midline.get_signed_angle(workplane.x_dir)
+        theta = WorkplaneList.localize((radius, sqrt(midline.length ** 2 - radius ** 2))).get_signed_angle(workplane.x_dir)
         angle = side_sign[side] * theta + phi
-        intersect = PolarLine(points[0], radius, angle)
-        tangent = Line(intersect @ 1, points[1])
+        intersect = WorkplaneList.localize((
+            radius * cos(radians(angle)),
+            radius * sin(radians(angle)))
+            ) + arc_center
+        tangent = Edge.make_line(intersect, tangent_point)
 
-        wire = Wire(tangent)
+        super().__init__(tangent, mode)
         super().__init__(wire, mode)
 
 
