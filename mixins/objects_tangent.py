@@ -90,12 +90,12 @@ class PointArcTangentLine(BaseLineObject):
 
         tangent_point  = WorkplaneList.localize(point)
         if context is None:
-            # Making the plane validates pnt, tangent, and other are coplanar
+            # Making the plane validates points and arc are coplanar
             workplane = Edge.make_line(tangent_point, arc.arc_center).common_plane(
                 *arc.edges()
             )
             if workplane is None:
-                raise ValueError("DoubleTangentArc only works on a single plane")
+                raise ValueError("PointArcTangentLine only works on a single plane.")
         else:
             workplane = copy_module.copy(
                 WorkplaneList._get_context().workplanes[0]
@@ -113,16 +113,16 @@ class PointArcTangentLine(BaseLineObject):
         # add the resulting angles with a sign on theta to pick a direction
         # This angle is the tangent location around the circle from x
         phi = midline.get_signed_angle(workplane.x_dir)
-        theta = WorkplaneList.localize((radius, sqrt(midline.length ** 2 - radius ** 2))).get_signed_angle(workplane.x_dir)
+        other_leg = sqrt(midline.length ** 2 - radius ** 2)
+        theta = WorkplaneList.localize((radius, other_leg)).get_signed_angle(workplane.x_dir)
         angle = side_sign[side] * theta + phi
         intersect = WorkplaneList.localize((
             radius * cos(radians(angle)),
             radius * sin(radians(angle)))
             ) + arc_center
-        tangent = Edge.make_line(intersect, tangent_point)
 
+        tangent = Edge.make_line(intersect, tangent_point)
         super().__init__(tangent, mode)
-        super().__init__(wire, mode)
 
 
 class DoubleArcTangentLine(BaseLineObject):
