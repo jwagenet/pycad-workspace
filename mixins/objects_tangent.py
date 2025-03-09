@@ -125,17 +125,19 @@ class PointArcTangentLine(BaseLineObject):
         super().__init__(tangent, mode)
 
 
-class DoubleArcTangentLine(BaseLineObject):
-    """Line Object: Double Arc Tangent Line
+class ArcArcTangentLine(BaseEdgeObject):
+    """Line Object: Arc Arc Tangent Line
 
-    Create a line tangent to supplied arcs
+    Create a straight line tangent to two arcs.
 
     Args:
         start_arc (Curve | Edge | Wire): starting arc, must be GeomType.CIRCLE
         end_arc (Curve | Edge | Wire): ending arc, must be GeomType.CIRCLE
-        side (Side): side of arcs to place tangent arc center, LEFT or RIGHT. Defaults to Side.LEFT
-        keep (Keep): which tangent arc to keep, INSIDE, OUTSIDE, or BOTH. Defaults to Keep.INSIDE
-        mode (Mode, optional): combination mode. Defaults to Mode.ADD.
+        side (Side): side of arcs to place tangent arc center, LEFT or RIGHT. 
+            Defaults to Side.LEFT
+        keep (Keep): which tangent arc to keep, INSIDE or OUTSIDE. 
+            Defaults to Keep.INSIDE
+        mode (Mode, optional): combination mode. Defaults to Mode.ADD
     """
 
     def __init__(
@@ -152,11 +154,20 @@ class DoubleArcTangentLine(BaseLineObject):
             Side.RIGHT: -1,
         }
 
-        keep_sign = {
-            Keep.INSIDE: [1],
-            Keep.OUTSIDE: [-1],
-            Keep.BOTH: [1, -1],
-        }
+        context: BuildLine | None = BuildLine._get_context(self)
+        validate_inputs(context, self)
+
+        if context is None:
+            # Making the plane validates start arc and end arc are coplanar
+            workplane = start_arc.edges().common_plane(
+                *end_arc.edges()
+            )
+            if workplane is None:
+                raise ValueError("ArcArcTangentLine only works on a single plane.")
+        else:
+            workplane = copy_module.copy(
+                WorkplaneList._get_context().workplanes[0]
+            )
 
         arcs = [start_arc, end_arc]
         points = [arc.arc_center for arc in arcs]
@@ -181,23 +192,22 @@ class DoubleArcTangentLine(BaseLineObject):
         # - INSIDE theta is angle formed by triangle legs (midline.length) and (r0 + r1)
         # - INSIDE theta for arc1 is 180 from theta for arc0
 
-        phi = degrees(atan2(midline.Y, midline.X))
-        tangent = []
-        for sign in keep_sign[keep]:
-            if sign == keep_sign[Keep.OUTSIDE][0]:
-                theta = degrees(acos((radii[0] - radii[1]) / midline.length))
-                angle = side_sign[side] * theta + phi
-                intersect = [PolarLine(points[i], radii[i], angle) for i in [0, 1]]
+        phi = midline.get_signed_angle(workplane.x_dir)
+        radius = radii[0] + radii[1] if keep == Keep.INSIDE else radii[0] - radii[1]
+        other_leg = sqrt(midline.length ** 2 - radius ** 2)
+        theta = WorkplaneList.localize((radius, other_leg)).get_signed_angle(workplane.x_dir)
+        angle = side_sign[side] * theta + phi
 
-            elif sign == keep_sign[Keep.INSIDE][0]:
-                theta = degrees(acos((radii[0] + radii[1]) / midline.length))
-                angle = side_sign[side] * theta + phi
-                intersect = [PolarLine(points[i], radii[i], i * 180 + angle) for i in [0, 1]]
+        intersect = []
+        for i in range(len(arcs)):
+            angle = i * 180 + angle if keep == Keep.INSIDE else angle
+            intersect.append(WorkplaneList.localize((
+                radii[i] * cos(radians(angle)),
+                radii[i] * sin(radians(angle)))
+                ) + points[i])
 
-            tangent.append(Line(intersect[0] @ 1, intersect[1] @ 1))
-
-        wire = Wire(tangent)
-        super().__init__(wire, mode)
+        tangent = Edge.make_line(intersect[0], intersect[1])
+        super().__init__(tangent, mode)
 
 
 class DoubleArcTangentArc(BaseLineObject):
