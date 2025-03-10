@@ -1,63 +1,13 @@
-from math import acos, atan2, degrees
+from math import radians, cos, sin, sqrt
+import copy as copy_module
 
 from build123d import *
+from build123d.build_common import WorkplaneList, flatten_sequence, validate_inputs
+from build123d.objects_curve import BaseEdgeObject
+
 from ocp_vscode import show, show_object, set_viewer_config, set_port, set_defaults, get_defaults
-set_port(3939)
+set_port(3940)
 
-
-class ArcTangentLine(BaseLineObject):
-    """Line Object: Arc Point Tangent Line
-
-    Create a line tangent to arc to point
-
-    Args:
-        start_arc (Curve | Edge | Wire): arc, must be GeomType.CIRCLE
-        target (VectorLike): target point for tangent
-        side (Side, optional): side of arcs to place tangent arc center, LEFT or RIGHT. Defaults to Side.LEFT
-        mode (Mode, optional): combination mode. Defaults to Mode.ADD.
-    """
-
-    def __init__(
-        self,
-        arc: Curve | Edge | Wire,
-        angle: float,
-        other: Curve | Edge | Wire = None,
-        length: float = None,
-        side: Side = Side.LEFT,
-        mode=Mode.ADD,
-        ):
-
-        side_sign = {
-            Side.LEFT: 1,
-            Side.RIGHT: -1,
-        }
-
-        center = arc.arc_center
-        radius = arc.radius
-
-        intersect = PolarLine(center, radius, angle)
-        normal = Vector((intersect @ 1).Y, -(intersect @ 1).X)
-
-        if other is not None:
-            tangent = IntersectingLine(intersect @ 1, direction=normal, other=other)
-
-        elif length is not None:
-            tangent = PolarLine(intersect @ 1, length, direction=side_sign[side] * -normal)
-
-        else:
-            raise ValueError("Need either other or a length to find tangent.")
-
-        show_object(tangent)
-
-        wire = Wire(tangent)
-        super().__init__(wire, mode)
-
-c1 = CenterArc((0, 0), 3, 0, 360)
-
-target = Line((-6, 6), (6,6))
-wire = ArcTangentLine(c1, 30, other=target)
-print(wire.length)
-show(c1, target, wire, position=(0,0,1), target=(0,0,0))
 
 class PointArcTangentLine(BaseLineObject):
     """Line Object: Point Arc Tangent Line
