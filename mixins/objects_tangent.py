@@ -99,11 +99,6 @@ class ArcArcTangentLine(BaseEdgeObject):
         mode=Mode.ADD,
         ):
 
-        side_sign = {
-            Side.LEFT: 1,
-            Side.RIGHT: -1,
-        }
-
         context: BuildLine | None = BuildLine._get_context(self)
         validate_inputs(context, self)
 
@@ -119,6 +114,7 @@ class ArcArcTangentLine(BaseEdgeObject):
                 WorkplaneList._get_context().workplanes[0]
             )
 
+        side_sign = 1 if Side.LEFT else -1
         arcs = [start_arc, end_arc]
         points = [arc.arc_center for arc in arcs]
         radii = [arc.radius for arc in arcs]
@@ -146,7 +142,7 @@ class ArcArcTangentLine(BaseEdgeObject):
         radius = radii[0] + radii[1] if keep == Keep.INSIDE else radii[0] - radii[1]
         other_leg = sqrt(midline.length ** 2 - radius ** 2)
         theta = WorkplaneList.localize((radius, other_leg)).get_signed_angle(workplane.x_dir)
-        angle = side_sign[side] * theta + phi
+        angle = side_sign * theta + phi
 
         intersect = []
         for i in range(len(arcs)):
@@ -160,17 +156,19 @@ class ArcArcTangentLine(BaseEdgeObject):
         super().__init__(tangent, mode)
 
 
-class DoubleArcTangentArc(BaseLineObject):
-    """Line Object: Double Arc Tangent Arc
+class ArcArcTangentArc(BaseEdgeObject):
+    """Line Object: Arc Arc Tangent Arc
 
-    Create an arc tangent to supplied arcs
+    Create an arc tangent to two arcs and a radius.
 
     Args:
         start_arc (Curve | Edge | Wire): starting arc, must be GeomType.CIRCLE
         end_arc (Curve | Edge | Wire): ending arc, must be GeomType.CIRCLE
         radius (float): radius of tangent arc
-        side (Side): side of arcs to place tangent arc center, LEFT or RIGHT. Defaults to Side.LEFT
-        keep (Keep): which tangent arc to keep, INSIDE, OUTSIDE, or BOTH. Defaults to Keep.INSIDE
+        side (Side): side of arcs to place tangent arc center, LEFT or RIGHT. 
+            Defaults to Side.LEFT
+        keep (Keep): which tangent arc to keep, INSIDE or OUTSIDE. 
+            Defaults to Keep.INSIDE
         mode (Mode, optional): combination mode. Defaults to Mode.ADD.
     """
 
@@ -184,79 +182,69 @@ class DoubleArcTangentArc(BaseLineObject):
         mode=Mode.ADD,
         ):
 
-        side_sign = {
-            Side.LEFT: 1,
-            Side.RIGHT: -1,
-        }
+        context: BuildLine | None = BuildLine._get_context(self)
+        validate_inputs(context, self)
 
-        keep_sign = {
-            Keep.INSIDE: [1],
-            Keep.OUTSIDE: [-1],
-            Keep.BOTH: [1, -1],
-        }
+        if context is None:
+            # Making the plane validates start arc and end arc are coplanar
+            workplane = start_arc.edges().common_plane(
+                *end_arc.edges()
+            )
+            if workplane is None:
+                raise ValueError("ArcArcTangentArc only works on a single plane.")
+        else:
+            workplane = copy_module.copy(
+                WorkplaneList._get_context().workplanes[0]
+            )
 
+        side_sign = 1 if side == Side.LEFT else -1
+        keep_sign = 1 if keep == Keep.INSIDE else -1
         arcs = [start_arc, end_arc]
         points = [arc.arc_center for arc in arcs]
         radii = [arc.radius for arc in arcs]
 
         # make a normal vector for sorting intersections
         midline = points[1] - points[0]
-        normal = side_sign[side] * Vector(midline.Y, -midline.X)
+        normal = side_sign * midline.cross(workplane.z_dir)
+        net_radius = radius + keep_sign * (radii[0] + radii[1]) / 2
 
-        arc = []
-        for sign in keep_sign[keep]:
-            net_radius = radius + sign * (radii[0] + radii[1]) / 2
+        # Technically the range midline.length / 2 < radius < math.inf should be valid
+        if net_radius <= midline.length / 2:
+            raise ValueError(f"The arc radius is too small. Should be greater than {(midline.length - keep_sign * (radii[0] + radii[1])) / 2} (and probably larger).")
 
-            # allow errors to fall through with Keep.BOTH to handle later
-            if keep != Keep.BOTH:
-                # technically the range midline.length / 2 < radius < math.inf should be valid
-                if net_radius <= midline.length / 2:
-                    raise ValueError(f"The arc radius is too small. Should be greater than {(midline.length - sign * (radii[0] + radii[1])) / 2} (and probably larger).")
+        # Current intersection method doesn't work out to expected range and may return 0
+        # Workaround to catch error midline.length / net_radius needs to be less than 1.888 or greater than .666 from testing
+        max_ratio = 1.888
+        min_ratio = .666
+        if midline.length / net_radius > max_ratio:
+            raise ValueError(f"The arc radius is too small. Should be greater than {midline.length / max_ratio - keep_sign * (radii[0] + radii[1]) / 2}.")
 
-                # current intersection method doesn't work out to expected range and may return 0
-                # workaround to catch error midline.length / net_radius needs to be less than 1.888 or greater than .666 from testing
-                max_ratio = 1.888
-                min_ratio = .666
-                if midline.length / net_radius > max_ratio:
-                    raise ValueError(f"The arc radius is too small. Should be greater than {midline.length / max_ratio - sign * (radii[0] + radii[1]) / 2}.")
+        if midline.length / net_radius < min_ratio:
+            raise ValueError(f"The arc radius is too large. Should be less than {midline.length / min_ratio - keep_sign * (radii[0] + radii[1]) / 2}.")
 
-                if midline.length / net_radius < min_ratio:
-                    raise ValueError(f"The arc radius is too large. Should be less than {midline.length / min_ratio - sign * (radii[0] + radii[1]) / 2}.")
+        # Method:
+        # https://www.youtube.com/watch?v=-STj2SSv6TU
+        # - the centerpoint of the inner arc is found by the intersection of the
+        #   arcs made by adding the inner radius to the point radii
+        # - the centerpoint of the outer arc is found by the intersection of the
+        #   arcs made by subtracting the outer radius from the point radii
+        # - then it's a matter of finding the points where the connecting lines
+        #   intersect the point circles
+        ref_arcs = [CenterArc(points[i], keep_sign * radii[i] + radius, start_angle=0, arc_size=360) for i in range(len(arcs))]
+        ref_intersections = ref_arcs[0].edge().intersect(ref_arcs[1].edge())
 
-            # Method:
-            # https://www.youtube.com/watch?v=-STj2SSv6TU
-            # - solves geometrically rather than algebraically
-            # - the centerpoint of the inner arc is found by the intersection of the
-            #   arcs made by adding the inner radius to the point radii
-            # - the centerpoint of the outer arc is found by the intersection of the
-            #   arcs made by subtracting the outer radius from the point radii
-            # - then it's a matter of finding the points where the connecting lines
-            #   intersect the point circles
-            ref_arcs = [CenterArc(points[i], sign * radii[i] + radius, start_angle=0, arc_size=360) for i in [0, 1]]
-            ref_intersections = ref_arcs[0].edge().intersect(ref_arcs[1].edge())
+        try:
+            arc_center = ref_intersections.sort_by(Axis(points[0], normal))[0]
+        except AttributeError as exception:
+            raise RuntimeError("Arc radius thought to be okay, but is too big or small to find intersection.")
 
-            try:
-                arc_center = ref_intersections.sort_by(Axis(points[0], normal))[0]
-            except AttributeError as exception:
-                if keep == Keep.BOTH:
-                    continue
-                else:
-                    raise exception
+        intersect = [points[i] + keep_sign * radii[i] * (Vector(arc_center) - points[i]).normalized() for i in range(len(arcs))]
 
-            intersect = [IntersectingLine(points[i], sign * (Vector(arc_center) - Vector(points[i])), arcs[i]) for i in [0, 1]]
-            intersect_points = [intersect[0] @ 1, intersect[1] @ 1]
+        if side == Side.LEFT:
+            intersect.reverse()
 
-            if side == Side.LEFT:
-                intersect_points.reverse()
-
-            arc.append(RadiusArc(*intersect_points, radius=radius))
-
-        if keep == Keep.BOTH and not arc:
-            # no intersections were found for Keep.BOTH after other checks ignored
-            raise ValueError("Unable to find any sides to keep with radius. Try Keep.INSIDE or Keep.OUTSIDE for more detailed information.")
-
-        wire = Wire(arc)
-        super().__init__(wire, mode)
+        arc = RadiusArc(*intersect, radius=radius)
+        super().__init__(arc, mode)
 
 
 class AubergineSlot(BaseSketchObject):
@@ -409,8 +397,8 @@ class AubergineArcSlot(BaseSketchObject):
         inner_radius = arc.radius - width_factor
         outer_radius = arc.radius + width_factor
 
-        inner_arc = DoubleArcTangentArc(start_arc, end_arc, inner_radius, side=Side.LEFT, keep=Keep.INSIDE)
-        outer_arc = DoubleArcTangentArc(start_arc, end_arc, outer_radius, side=Side.LEFT, keep=Keep.OUTSIDE)
+        inner_arc = ArcArcTangentArc(start_arc, end_arc, inner_radius, side=Side.LEFT, keep=Keep.INSIDE)
+        outer_arc = ArcArcTangentArc(start_arc, end_arc, outer_radius, side=Side.LEFT, keep=Keep.OUTSIDE)
         start_arc = TangentArc([inner_arc @ 0, outer_arc @ 0], tangent=-(inner_arc % 0))
         end_arc = TangentArc([inner_arc @ 1, outer_arc @ 1], tangent=inner_arc % 1)
 
