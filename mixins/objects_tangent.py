@@ -104,7 +104,7 @@ class ArcArcTangentLine(BaseEdgeObject):
 
         if context is None:
             # Making the plane validates start arc and end arc are coplanar
-            workplane = start_arc.edges().common_plane(
+            workplane = start_arc.edge().common_plane(
                 *end_arc.edges()
             )
             if workplane is None:
@@ -114,7 +114,7 @@ class ArcArcTangentLine(BaseEdgeObject):
                 WorkplaneList._get_context().workplanes[0]
             )
 
-        side_sign = 1 if Side.LEFT else -1
+        side_sign = 1 if side == Side.LEFT else -1
         arcs = [start_arc, end_arc]
         points = [arc.arc_center for arc in arcs]
         radii = [arc.radius for arc in arcs]
@@ -187,15 +187,21 @@ class ArcArcTangentArc(BaseEdgeObject):
 
         if context is None:
             # Making the plane validates start arc and end arc are coplanar
-            workplane = start_arc.edges().common_plane(
-                *end_arc.edges()
+            workplane = start_arc.edge().common_plane(
+                end_arc.edge()
             )
             if workplane is None:
                 raise ValueError("ArcArcTangentArc only works on a single plane.")
+
+            # I dont know why, but workplane.z_dir is flipped from expected
+            if workplane.z_dir != start_arc.normal():
+                workplane = -workplane
         else:
             workplane = copy_module.copy(
                 WorkplaneList._get_context().workplanes[0]
             )
+        print(workplane.z_dir, start_arc.normal())
+        show_object([workplane, start_arc.normal(), end_arc.normal()])
 
         side_sign = 1 if side == Side.LEFT else -1
         keep_sign = 1 if keep == Keep.INSIDE else -1
