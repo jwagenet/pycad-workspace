@@ -24,6 +24,6 @@ class TooTallToby(BasePartObject):
 
     def show_properties(self):
         mass_diff = abs(self.ref_mass - self.mass)
-        print(f"\npart mass = {self.mass:.02f}")
+        print(f"\npart mass = {self.mass:.03f}")
         print(f"ref mass = {self.ref_mass}")
         print(f"in tolerance: {self.tolerance > mass_diff}, in sig fig {.01 > mass_diff}")
